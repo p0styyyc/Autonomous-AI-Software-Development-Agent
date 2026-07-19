@@ -185,7 +185,7 @@ GET    /health                         — 健康检查
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/your-username/mini-background-agent.git
+git clone https://github.com/p0styyyc/Autonomous-AI-Software-Development-Agent.git
 cd mini-background-agent
 ```
 
