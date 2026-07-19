@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface-900 text-gray-100 antialiased;
+  }
+}
+
+@layer components {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-surface-800;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-surface-700 rounded-full;
+  }
+}
+
+/* 代码块样式覆盖 */
+pre {
+  @apply rounded-lg !important;
+}

@@ -1,0 +1,22 @@
+# ============================================
+# Mini Background Coding Agent — Sandbox
+# ============================================
+# 基于官方 Python 镜像，预装 pytest 用于测试执行
+FROM python:3.11-slim
+
+# 安装常用依赖（沙箱中可用）
+RUN pip install --no-cache-dir \
+    pytest==8.* \
+    requests==2.* \
+    flask==3.* \
+    fastapi==0.115.* \
+    uvicorn==0.32.*
+
+# 创建非 root 用户
+RUN useradd --create-home --shell /bin/bash sandbox
+USER sandbox
+
+WORKDIR /sandbox
+
+# 沙箱入口由 PythonExecutionTool 通过 docker run 指定
+CMD ["python"]
