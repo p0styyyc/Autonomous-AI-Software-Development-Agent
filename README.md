@@ -1,7 +1,5 @@
 # 🤖 Mini Background Coding Agent
 
-> 一个简化但完整的**自主编程 Agent 系统**，展示 AI 应用工程师核心能力。
->
 > 用户输入自然语言需求 → 多个 AI Agent 自动协作 → 生成可运行的代码项目。
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
@@ -25,7 +23,6 @@
 - [安全设计](#安全设计)
 - [测试](#测试)
 - [项目难点](#项目难点)
-- [面试讲解要点](#面试讲解要点)
 - [后续优化方向](#后续优化方向)
 
 ---
@@ -356,26 +353,6 @@ Total:                 92 tests  ✅ 0 failures
 
 ---
 
-## 面试讲解要点
-
-### 如果面试官问"这个项目最难的是什么？"
-
-> "最难的是让 LLM 输出可预测。Planner 输出的 JSON 经常带 markdown 标记或前后文字，我写了 `_extract_json()` 做容错解析。Reviewer 如果崩溃可能导致死循环，我加了异常降级逻辑——审查异常时默认通过，记录 critical issue 但不阻塞流水线。"
-
-### 如果面试官问"安全你是怎么考虑的？"
-
-> "LLM 生成的代码不可信。我没用 subprocess，而是 Docker 容器做 5 层隔离——无网络、只读文件系统、去特权、内存限制、超时。即使代码是 `rm -rf /`，也只影响容器内的只读文件系统。"
-
-### 如果面试官问"为什么用 LangGraph？"
-
-> "LangGraph 提供显式的 StateGraph 和条件路由。我的流水线需要 'Reviewer 判定 pass/fail → 重试 Coder 还是继续下一步'，纯 LangChain 的 AgentExecutor 做不到这种精细控制。LangGraph 的 StateGraph + conditional_edges 天然支持。"
-
-### 如果面试官问"怎么扩展这个项目？"
-
-> "三个方向：1) 加 Human-in-the-Loop——Reviewer fail 时暂停等待人工介入；2) 用 LangSmith 做 LLM 调用链路追踪；3) 对接 GitHub API 直接创建 PR。技术上已经在 AgentState 里预留了 checkpoint 接口。"
-
----
-
 ## 后续优化方向
 
 - [ ] **Human-in-the-Loop** — Reviewer fail 时暂停等待人工决定
@@ -402,6 +379,5 @@ MIT License — 详见 [LICENSE](LICENSE) 文件。
 ---
 
 <p align="center">
-  <b>Built for AI Application Engineer Portfolio</b><br>
   <sub>Python · FastAPI · LangGraph · React · Docker</sub>
 </p>
