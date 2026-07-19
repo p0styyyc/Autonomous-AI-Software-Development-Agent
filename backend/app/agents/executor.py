@@ -76,11 +76,27 @@ class ExecutionAgent(AgentBase):
             f"[Executor] Executing {len(code_files)} files, entry={entry_point}"
         )
 
+        # 自动检测入口文件：如果指定的入口不存在，查找其他 Python 文件
+        actual_entry = entry_point
         if entry_point not in code_files:
+            py_files = sorted([
+                f for f in code_files
+                if f.endswith(".py") and not f.startswith("test_")
+            ])
+            # 优先选择常见入口文件名
+            for candidate in ["main.py", "app.py", "server.py", "run.py", "cli.py"]:
+                if candidate in py_files:
+                    actual_entry = candidate
+                    break
+            if actual_entry == entry_point and py_files:
+                actual_entry = py_files[0]
+
+        if actual_entry not in code_files:
+            file_list = ", ".join(list(code_files.keys())[:10])
             return PythonExecOutput(
                 exit_code=-1,
                 stdout="",
-                stderr=f"Entry point '{entry_point}' not found in provided files",
+                stderr=f"No Python entry file found. Available files: {file_list}",
                 execution_time_ms=0,
                 timed_out=False,
                 success=False,
@@ -88,10 +104,10 @@ class ExecutionAgent(AgentBase):
 
         # 使用 PythonExecutionTool 在沙箱中执行
         result_str = self._python_tool._run(
-            code=code_files[entry_point],
+            code=code_files[actual_entry],
             files=code_files,
             timeout_seconds=timeout_seconds,
-            entry_point=entry_point,
+            entry_point=actual_entry,
         )
 
         return self._parse_result(result_str)

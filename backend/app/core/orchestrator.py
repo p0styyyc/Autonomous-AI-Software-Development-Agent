@@ -2,18 +2,13 @@
 LangGraph Orchestrator — 多 Agent 流水线编排器
 
 核心流程:
-    START → planner → coder → executor → reviewer
-                  ↑         ↑                    │
-                  │         └── retry ───────────┤ (failed, retry < max)
-                  │                              │
-                  └── next step ─────────────────┘ (passed or max retries)
-                                                      │
-                                                     END
-
-使用 LangGraph StateGraph 实现：
-  - 每个 Agent 对应一个 Node
-  - 条件路由决定下一步（重试 or 继续 or 结束）
-  - State 在 Node 间传递，积累执行结果
+    START → planner → [failed? → finalize]
+                   ↓
+                 coder → [done? → finalize]
+                   ↓
+               executor
+                   ↓
+               reviewer → [retry → coder] [next → coder] [done → finalize]
 """
 
 import logging
@@ -22,7 +17,6 @@ from typing import Literal
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 
-from app.agents.base import AgentBase
 from app.agents.coder import CodingAgent
 from app.agents.executor import ExecutionAgent, collect_workspace_files
 from app.agents.planner import PlannerAgent
@@ -44,15 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 class AgentOrchestrator:
-    """
-    Agent 流水线编排器
-
-    使用 LangGraph StateGraph 管理 4 个 Agent 的执行顺序和条件路由。
-
-    使用示例:
-        orchestrator = AgentOrchestrator()
-        result = await orchestrator.run("创建天气查询API")
-    """
+    """Agent 流水线编排器 — LangGraph StateGraph 管理 4 个 Agent"""
 
     def __init__(
         self,
@@ -68,52 +54,76 @@ class AgentOrchestrator:
         """构建 LangGraph 状态图"""
         workflow = StateGraph(AgentState)
 
-        # 添加 Node
         workflow.add_node("planner", self._planner_node)
         workflow.add_node("coder", self._coder_node)
         workflow.add_node("executor", self._executor_node)
         workflow.add_node("reviewer", self._reviewer_node)
         workflow.add_node("finalize", self._finalize_node)
 
-        # 设置入口
         workflow.set_entry_point("planner")
 
-        # 添加边
-        workflow.add_edge("planner", "coder")
+        # Planner → 成功进 coder，失败进 finalize
+        workflow.add_conditional_edges(
+            "planner",
+            self._route_after_planner,
+            {"coder": "coder", "finalize": "finalize"},
+        )
 
-        # Coder → Executor（执行代码）
-        workflow.add_edge("coder", "executor")
+        # Coder → 成功进 executor，失败/done 进 finalize
+        workflow.add_conditional_edges(
+            "coder",
+            self._route_after_coder,
+            {"executor": "executor", "finalize": "finalize"},
+        )
 
-        # Executor → Reviewer（审查结果）
+        # Executor → Reviewer
         workflow.add_edge("executor", "reviewer")
 
-        # Reviewer → 条件路由（重试 or 继续 or 结束）
+        # Reviewer → retry / next_step / finalize
         workflow.add_conditional_edges(
             "reviewer",
             self._route_after_review,
-            {
-                "retry": "coder",
-                "next_step": "coder",
-                "finalize": "finalize",
-            },
+            {"retry": "coder", "next_step": "coder", "finalize": "finalize"},
         )
 
-        # Finalize → END
         workflow.add_edge("finalize", END)
 
-        # 编译（带内存检查点，支持状态恢复）
         return workflow.compile(checkpointer=MemorySaver())
 
-    # ── Node 实现 ──────────────────────────────
+    # ── Routing ────────────────────────────────
+
+    def _route_after_planner(self, state: AgentState) -> Literal["coder", "finalize"]:
+        if state.get("status") == "failed":
+            return "finalize"
+        return "coder"
+
+    def _route_after_coder(self, state: AgentState) -> Literal["executor", "finalize"]:
+        status = state.get("status", "")
+        if status in ("failed", "done"):
+            return "finalize"
+        return "executor"
+
+    def _route_after_review(self, state: AgentState) -> Literal["retry", "next_step", "finalize"]:
+        status = state.get("status", "")
+        if status == "finalize":
+            return "finalize"
+        if status == "retry":
+            return "retry"
+        # status == "next_step" or "coding" (shouldn't happen normally)
+        steps = state.get("steps", [])
+        next_idx = state.get("current_step_index", 0)
+        if next_idx >= len(steps):
+            return "finalize"
+        return "next_step"
+
+    # ── Nodes ──────────────────────────────────
 
     async def _planner_node(self, state: AgentState) -> dict:
-        """Planner Node: 分析需求，制定计划"""
         self._emit(state, "planning_started")
 
         try:
             llm = create_planner_llm()
             planner = PlannerAgent(llm=llm)
-
             plan = planner.plan(state["user_request"])
 
             self._emit(
@@ -128,23 +138,25 @@ class AgentOrchestrator:
                 "plan_summary": plan["task_summary"],
                 "steps": plan["steps"],
                 "current_step_index": 0,
+                "retry_count": 0,
                 "status": "coding",
                 "files_created": [],
                 "files_modified": [],
             }
         except Exception as e:
             logger.exception("Planner node failed")
+            self._emit(state, "task_failed", error=str(e))
             return {
                 "status": "failed",
                 "error_message": f"Planning failed: {e}",
             }
 
     async def _coder_node(self, state: AgentState) -> dict:
-        """Coder Node: 根据当前步骤生成/修改代码"""
-        steps = state["steps"]
-        step_idx = state["current_step_index"]
+        steps = state.get("steps", [])
+        step_idx = state.get("current_step_index", 0)
 
-        if step_idx >= len(steps):
+        # 所有步骤完成 或 步骤列表为空
+        if step_idx >= len(steps) or len(steps) == 0:
             return {"status": "done"}
 
         step = steps[step_idx]
@@ -152,30 +164,28 @@ class AgentOrchestrator:
         self._emit(
             state,
             "step_started",
-            step_id=step["id"],
-            description=step["description"],
+            step_id=step.get("id", step_idx + 1),
+            description=step.get("description", ""),
             step_index=step_idx,
             total_steps=len(steps),
         )
-        self._emit(state, "coding_started", step_id=step["id"])
+        self._emit(state, "coding_started", step_id=step.get("id", step_idx + 1))
 
         try:
-            # 准备 Coder
             llm = create_coder_llm()
-            tool_registry = create_tool_registry(str(self.workspace._get_path(state["task_id"])))
+            tool_registry = create_tool_registry(
+                str(self.workspace._get_path(state["task_id"]))
+            )
             coder = CodingAgent(llm=llm, tools=tool_registry.for_coder())
 
-            # 获取工作区现状
             workspace_summary = self.workspace.get_workspace_summary(state["task_id"])
 
-            # 执行代码生成
-            result = coder.implement_step(
-                task_summary=state["plan_summary"],
+            coder.implement_step(
+                task_summary=state.get("plan_summary", ""),
                 step=step,
                 workspace_state=workspace_summary,
             )
 
-            # 更新文件列表
             files_created = list(state.get("files_created", []))
             files_modified = list(state.get("files_modified", []))
             for f in step.get("files_to_create", []):
@@ -188,7 +198,7 @@ class AgentOrchestrator:
             self._emit(
                 state,
                 "code_generated",
-                step_id=step["id"],
+                step_id=step.get("id", step_idx + 1),
                 files_created=step.get("files_to_create", []),
                 files_modified=step.get("files_to_modify", []),
             )
@@ -203,53 +213,46 @@ class AgentOrchestrator:
             logger.exception("Coder node failed")
             self._emit(state, "error", message=f"Coding failed: {e}")
             return {
+                "status": "failed",
                 "error_message": f"Coding failed: {e}",
             }
 
     async def _executor_node(self, state: AgentState) -> dict:
-        """Executor Node: 在沙箱中执行代码"""
         self._emit(state, "executing_started")
 
         try:
-            # 收集工作区文件
             code_files = collect_workspace_files(
                 str(self.workspace._get_path(state["task_id"]))
             )
 
-            if not code_files:
-                return {
-                    "execution_result": {
-                        "exit_code": -1,
-                        "stdout": "",
-                        "stderr": "No files to execute",
-                        "execution_time_ms": 0,
-                        "timed_out": False,
-                    },
-                    "status": "reviewing",
-                }
-
-            # 在沙箱中执行
-            llm = create_llm()
-            executor = ExecutionAgent(
-                llm=llm,
-                workspace_path=str(self.workspace._get_path(state["task_id"])),
-            )
-
-            result = executor.execute(
-                code_files=code_files,
-                entry_point="main.py",
-                timeout_seconds=self.settings.sandbox_timeout_seconds,
-            )
-
             execution_data = {
-                "exit_code": result.exit_code,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "execution_time_ms": result.execution_time_ms,
-                "timed_out": result.timed_out,
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": "No files to execute",
+                "execution_time_ms": 0,
+                "timed_out": False,
             }
 
-            if result.success:
+            if code_files:
+                llm = create_llm()
+                executor = ExecutionAgent(
+                    llm=llm,
+                    workspace_path=str(self.workspace._get_path(state["task_id"])),
+                )
+                result = executor.execute(
+                    code_files=code_files,
+                    entry_point="main.py",
+                    timeout_seconds=self.settings.sandbox_timeout_seconds,
+                )
+                execution_data = {
+                    "exit_code": result.exit_code,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                    "execution_time_ms": result.execution_time_ms,
+                    "timed_out": result.timed_out,
+                }
+
+            if execution_data["exit_code"] == 0:
                 self._emit(state, "execution_success", **execution_data)
             else:
                 self._emit(state, "execution_error", **execution_data)
@@ -263,29 +266,30 @@ class AgentOrchestrator:
             logger.exception("Executor node failed")
             return {
                 "execution_result": {
-                    "exit_code": -1,
-                    "stdout": "",
-                    "stderr": str(e),
-                    "execution_time_ms": 0,
-                    "timed_out": False,
+                    "exit_code": -1, "stdout": "", "stderr": str(e),
+                    "execution_time_ms": 0, "timed_out": False,
                 },
                 "status": "reviewing",
             }
 
     async def _reviewer_node(self, state: AgentState) -> dict:
-        """Reviewer Node: 审查代码质量和执行结果"""
-        step_idx = state["current_step_index"]
-        step = state["steps"][step_idx]
-        self._emit(state, "reviewing_started", step_id=step["id"])
+        """Reviewer Node: 审查代码 + 决定下一步状态"""
+        steps = state.get("steps", [])
+        step_idx = state.get("current_step_index", 0)
+
+        # 安全兜底：没有步骤时直接结束
+        if len(steps) == 0 or step_idx >= len(steps):
+            return {"status": "finalize"}
+
+        step = steps[step_idx]
+        self._emit(state, "reviewing_started", step_id=step.get("id", step_idx + 1))
 
         try:
             llm = create_reviewer_llm()
             reviewer = ReviewAgent(llm=llm)
 
-            # 收集代码
             workspace_summary = self.workspace.get_workspace_summary(state["task_id"])
 
-            # 格式化执行结果
             exec_result = state.get("execution_result", {})
             exec_str = (
                 f"Exit Code: {exec_result.get('exit_code', '?')}\n"
@@ -295,112 +299,107 @@ class AgentOrchestrator:
             )
 
             review = reviewer.review(
-                step_description=step["description"],
+                step_description=step.get("description", ""),
                 expected_output=step.get("expected_output", ""),
                 code=workspace_summary[:8000],
                 execution_result=exec_str,
             )
 
             review_data = {
-                "passed": review["passed"],
-                "overall_score": review["overall_score"],
+                "passed": review.get("passed", False),
+                "overall_score": review.get("overall_score", 0),
                 "dimensions": review.get("dimensions", {}),
                 "critical_issues": review.get("critical_issues", []),
                 "suggestions": review.get("suggestions", []),
                 "summary": review.get("summary", ""),
             }
 
-            if review["passed"]:
+            if review_data["passed"]:
                 self._emit(state, "review_pass", **review_data)
             else:
                 self._emit(state, "review_fail", **review_data)
 
-            return {"review_result": review_data}
+            # ── 状态转换（关键：在 node 中修改状态，而非路由函数中）──
+            max_retries = state.get("max_retries", self.settings.max_retries)
+            retry_count = state.get("retry_count", 0)
+
+            if review_data["passed"]:
+                # 通过 → 下一步
+                next_idx = step_idx + 1
+                new_retry = 0
+                if next_idx >= len(steps):
+                    return {
+                        "review_result": review_data,
+                        "current_step_index": next_idx,
+                        "retry_count": 0,
+                        "status": "finalize",
+                    }
+                else:
+                    return {
+                        "review_result": review_data,
+                        "current_step_index": next_idx,
+                        "retry_count": 0,
+                        "status": "next_step",
+                    }
+            else:
+                # 未通过
+                new_retry = retry_count + 1
+                if new_retry <= max_retries:
+                    self._emit(
+                        state,
+                        "retry_started",
+                        step_id=step.get("id", step_idx + 1),
+                        retry=new_retry,
+                        max_retries=max_retries,
+                        reason=review_data.get("summary", ""),
+                    )
+                    return {
+                        "review_result": review_data,
+                        "retry_count": new_retry,
+                        "status": "retry",
+                    }
+                else:
+                    # 超过最大重试，跳过当前步骤
+                    logger.warning(
+                        f"Step {step_idx + 1} exceeded max retries ({max_retries}), skipping"
+                    )
+                    next_idx = step_idx + 1
+                    if next_idx >= len(steps):
+                        return {
+                            "review_result": review_data,
+                            "current_step_index": next_idx,
+                            "retry_count": 0,
+                            "status": "finalize",
+                        }
+                    else:
+                        return {
+                            "review_result": review_data,
+                            "current_step_index": next_idx,
+                            "retry_count": 0,
+                            "status": "next_step",
+                        }
 
         except Exception as e:
             logger.exception("Reviewer node failed")
+            # 异常时跳过当前步骤，避免死循环
+            next_idx = step_idx + 1
+            if next_idx >= len(steps):
+                return {"status": "finalize"}
             return {
-                "review_result": {
-                    "passed": True,  # 审查异常时默认通过，避免死循环
-                    "overall_score": 0,
-                    "critical_issues": [f"Review error: {e}"],
-                    "suggestions": [],
-                    "summary": "Review failed due to an error, defaulting to pass",
-                },
+                "current_step_index": next_idx,
+                "retry_count": 0,
+                "status": "next_step",
             }
 
-    def _route_after_review(self, state: AgentState) -> Literal["retry", "next_step", "finalize"]:
-        """
-        条件路由: 根据审查结果决定下一步
-
-        逻辑:
-          1. 如果 status 是 failed → finalize（报告失败）
-          2. 如果审查不通过 且 重试次数 < max → retry
-          3. 如果审查通过 且 还有步骤 → next_step（继续下一步）
-          4. 如果审查通过 且 全部完成 → finalize
-        """
-        if state.get("status") == "failed":
-            return "finalize"
-
-        review = state.get("review_result", {})
-        steps = state["steps"]
-        step_idx = state["current_step_index"]
-        retry_count = state.get("retry_count", 0)
-        max_retries = state.get("max_retries", self.settings.max_retries)
-
-        if not review.get("passed", False):
-            if retry_count < max_retries:
-                logger.info(
-                    f"Step {step_idx + 1} failed review, retrying ({retry_count + 1}/{max_retries})"
-                )
-                self._emit(
-                    state,
-                    "retry_started",
-                    step_id=steps[step_idx]["id"],
-                    retry=retry_count + 1,
-                    max_retries=max_retries,
-                    reason=review.get("summary", ""),
-                )
-                return "retry"
-
-            # 超过最大重试，跳过当前步骤
-            logger.warning(
-                f"Step {step_idx + 1} failed after {max_retries} retries, moving to next step"
-            )
-
-        # 移动到下一步或结束
-        next_idx = step_idx + 1
-        if next_idx < len(steps):
-            return "next_step"
-        else:
-            return "finalize"
-
     async def _finalize_node(self, state: AgentState) -> dict:
-        """Finalize Node: 生成最终报告"""
         self._emit(state, "task_completed")
-
         report = self._generate_report(state)
         logger.info(f"Task {state['task_id']} completed")
+        return {"status": "done", "final_report": report}
 
-        return {
-            "status": "done",
-            "final_report": report,
-        }
-
-    # ── 公共接口 ──────────────────────────────
+    # ── Public API ─────────────────────────────
 
     async def run(self, task_id: str, user_request: str, provider: str = "openai") -> dict:
-        """
-        执行完整的 Agent 流水线
-
-        Args:
-            task_id: 任务 ID
-            user_request: 用户自然语言需求
-            provider: LLM provider (openai/deepseek)
-
-        Returns:
-            最终的 AgentState 字典
-        """
         self.workspace.create(task_id)
 
         initial_state = create_initial_state(
@@ -413,7 +412,6 @@ class AgentOrchestrator:
 
         self._emit(initial_state, "task_started")
 
-        # LangGraph config（用于 checkpoint）
         config = {"configurable": {"thread_id": task_id}}
 
         try:
@@ -429,70 +427,46 @@ class AgentOrchestrator:
                 "final_report": self._generate_error_report(initial_state, e),
             }
 
-    # ── 辅助方法 ──────────────────────────────
+    # ── Helpers ────────────────────────────────
 
-    def _emit(self, state: AgentState, event_type: str, **extra: dict) -> None:
-        """发布事件到 EventBus"""
-        event = WSEvent.create(
-            event_type,
-            task_id=state.get("task_id", "unknown"),
-            **extra,
-        )
-        self.event_bus.publish(event)
+    def _emit(self, state: AgentState, event_type: str, **extra) -> None:
+        self.event_bus.publish(WSEvent.create(
+            event_type, task_id=state.get("task_id", "unknown"), **extra,
+        ))
 
     def _generate_report(self, state: AgentState) -> str:
-        """生成最终开发报告"""
-        steps = state["steps"]
+        steps = state.get("steps", [])
         review = state.get("review_result", {})
-
         lines = [
-            "# Development Report",
-            "",
+            "# Development Report", "",
             f"## Task Summary",
-            f"{state.get('plan_summary', 'N/A')}",
-            "",
+            f"{state.get('plan_summary', 'N/A')}", "",
             f"## Result",
-            f"- **Status**: {'PASSED' if review.get('passed', False) else 'COMPLETED WITH ISSUES'}",
-            f"- **Review Score**: {review.get('overall_score', 0)}/100",
-            "",
+            f"- **Status**: {'PASSED' if review.get('passed') else 'COMPLETED'}",
+            f"- **Review Score**: {review.get('overall_score', 0)}/100", "",
             "## Steps Executed",
         ]
-
+        done_idx = max(0, state.get("current_step_index", 0) - 1)
         for i, step in enumerate(steps):
-            status = "✅" if i < state["current_step_index"] else "⏳"
-            lines.append(f"{status} **Step {step['id']}**: {step['description']}")
+            icon = "✅" if i <= done_idx else "⏳"
+            lines.append(f"{icon} **Step {step.get('id', i+1)}**: {step.get('description', '')}")
 
         lines.extend([
-            "",
-            "## Files Created",
+            "", "## Files Created",
             *[f"- `{f}`" for f in state.get("files_created", []) or ["(none)"]],
-            "",
-            "## Files Modified",
+            "", "## Files Modified",
             *[f"- `{f}`" for f in state.get("files_modified", []) or ["(none)"]],
-            "",
-            "## Review Notes",
+            "", "## Review Notes",
             review.get("summary", "No review available"),
         ])
-
         if review.get("suggestions"):
-            lines.extend([
-                "",
-                "## Suggestions",
-                *[f"- {s}" for s in review["suggestions"]],
-            ])
-
+            lines.extend(["", "## Suggestions", *[f"- {s}" for s in review["suggestions"]]])
         return "\n".join(lines)
 
     def _generate_error_report(self, state: AgentState, error: Exception) -> str:
-        """生成错误报告"""
         return "\n".join([
-            "# Development Report — FAILED",
-            "",
-            f"## Error",
-            f"```",
-            f"{type(error).__name__}: {error}",
-            f"```",
-            "",
+            "# Development Report — FAILED", "",
+            f"## Error", f"```", f"{type(error).__name__}: {error}", f"```", "",
             "The task could not be completed due to an unexpected error.",
             "Please check the logs and try again.",
         ])

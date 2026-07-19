@@ -90,7 +90,7 @@ export function ChatWindow() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-bold text-white">
-                🤖 Mini Background Coding Agent
+                🤖 Autonomous AI Software Development Agent
               </h1>
               <p className="text-xs text-gray-500">
                 {connected && taskId
@@ -117,7 +117,7 @@ export function ChatWindow() {
             <div className="text-center text-gray-500 mt-20">
               <p className="text-4xl mb-4">🤖</p>
               <p className="text-lg font-medium mb-2">
-                Mini Background Coding Agent
+                Autonomous AI Software Development Agent
               </p>
               <p className="text-sm">
                 Describe what you want to build and I&apos;ll code it for you.

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>刘皓 — AI应用工程师</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --text: #1a1a2e;
+    --text-secondary: #4b5563;
+    --accent: #2563eb;
+    --border: #e5e7eb;
+    --tag-bg: #eff6ff;
+    --tag-text: #1d4ed8;
+    --section-gap: 14pt;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+    font-size: 9.5pt;
+    line-height: 1.55;
+    color: var(--text);
+    background: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    background: #fff;
+    padding: 22mm 20mm 20mm 20mm;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: left;
+    margin-bottom: var(--section-gap);
+  }
+  .header h1 {
+    font-size: 22pt;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    margin-bottom: 3pt;
+  }
+  .header .title {
+    font-size: 10.5pt;
+    font-weight: 500;
+    color: var(--accent);
+    margin-bottom: 8pt;
+  }
+  .header .contact {
+    font-size: 9pt;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 18pt;
+    flex-wrap: wrap;
+  }
+  .header .contact span {
+    white-space: nowrap;
+  }
+  .header .contact a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    border: none;
+    border-top: 0.75pt solid var(--border);
+    margin: var(--section-gap) 0;
+  }
+
+  /* ── Sections ── */
+  .section { margin-bottom: var(--section-gap); }
+  .section-title {
+    font-size: 11pt;
+    font-weight: 600;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 9pt;
+    position: relative;
+    padding-left: 10pt;
+  }
+  .section-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 2pt;
+    bottom: 2pt;
+    width: 2.5pt;
+    background: var(--accent);
+    border-radius: 1.25pt;
+  }
+
+  /* ── Skills ── */
+  .skills-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8pt 14pt;
+  }
+  .skill-cat {
+    font-size: 9pt;
+    color: var(--text-secondary);
+  }
+  .skill-cat strong {
+    color: var(--text);
+    font-weight: 600;
+    margin-right: 4pt;
+  }
+  .skill-tag {
+    display: inline-block;
+    font-family: 'Inter', 'JetBrains Mono', monospace;
+    font-size: 8.5pt;
+    color: var(--tag-text);
+    background: var(--tag-bg);
+    padding: 1.5pt 6pt;
+    border-radius: 3pt;
+    margin: 0 1pt;
+  }
+
+  /* ── Project ── */
+  .project { margin-bottom: 14pt; }
+  .project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4pt;
+  }
+  .project-name {
+    font-size: 11pt;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .project-date {
+    font-size: 8.5pt;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .project-subtitle {
+    font-size: 9pt;
+    color: var(--text-secondary);
+    margin-bottom: 6pt;
+  }
+  .project-desc {
+    font-size: 9.5pt;
+    color: var(--text);
+    margin-bottom: 7pt;
+  }
+  .project-bullets {
+    list-style: none;
+    padding: 0;
+  }
+  .project-bullets li {
+    position: relative;
+    padding-left: 14pt;
+    margin-bottom: 5pt;
+    font-size: 9.5pt;
+    line-height: 1.5;
+  }
+  .project-bullets li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 7pt;
+    top: 1pt;
+  }
+  .project-bullets li strong {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .tech-stack {
+    margin-top: 7pt;
+    font-size: 8.5pt;
+    color: var(--text-secondary);
+    font-family: 'Inter', 'JetBrains Mono', monospace;
+  }
+  .tech-stack span { color: var(--accent); }
+
+  /* ── Education ── */
+  .edu-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5pt;
+  }
+  .edu-line .school { font-weight: 600; }
+  .edu-line .detail { color: var(--text-secondary); }
+
+  /* ── Strengths ── */
+  .strengths {
+    list-style: none;
+    padding: 0;
+  }
+  .strengths li {
+    position: relative;
+    padding-left: 14pt;
+    margin-bottom: 4pt;
+    font-size: 9pt;
+    color: var(--text);
+  }
+  .strengths li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6pt;
+    width: 4pt;
+    height: 4pt;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  /* ── Print ── */
+  @media print {
+    body {
+      background: #fff;
+      padding: 0;
+    }
+    .page {
+      box-shadow: none;
+      width: 210mm;
+      min-height: 297mm;
+      padding: 18mm 18mm 16mm 18mm;
+    }
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ═══════ HEADER ═══════ -->
+  <div class="header">
+    <h1>刘 皓</h1>
+    <div class="title">AI应用工程师 — LLM应用开发 / AI Agent工程</div>
+    <div class="contact">
+      <span>📧 1281741407@qq.com</span>
+      <span>🔗 <a href="https://github.com/p0styyyc">github.com/p0styyyc</a></span>
+      <span>📍 广州</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ 技术能力 ═══════ -->
+  <div class="section">
+    <div class="section-title">技术能力</div>
+    <div class="skills-grid">
+      <div class="skill-cat"><strong>LLM应用</strong> LangGraph · LangChain · Agent架构 · Tool Calling · Prompt Engineering · Multi-Agent · RAG</div>
+      <div class="skill-cat"><strong>后端</strong> Python · FastAPI · WebSocket · REST API · Pydantic · 异步编程 · Docker SDK</div>
+      <div class="skill-cat"><strong>工程</strong> Git · Docker · Docker Compose · pytest · ruff · mypy · Linux</div>
+      <div class="skill-cat"><strong>前端</strong> React 18 · TypeScript · Tailwind CSS</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ 项目经历 ═══════ -->
+  <div class="section">
+    <div class="section-title">项目经历</div>
+
+    <div class="project">
+      <div class="project-header">
+        <span class="project-name">Autonomous AI Software Development Agent</span>
+        <span class="project-date">2026.06</span>
+      </div>
+      <div class="project-subtitle">个人作品集项目 · 70+ 文件 · 92 测试 · <a href="https://github.com/p0styyyc/mini-background-agent" style="color:var(--text-secondary)">github.com/p0styyyc/mini-background-agent</a></div>
+
+      <div class="project-desc">
+        对标 GitHub Copilot Workspace / Devin 理念，从零构建完整多Agent自主编程系统。用户输入自然语言需求后，系统自动完成 <strong>需求理解 → 任务规划 → 代码生成 → 沙箱执行 → 质量审查</strong> 的完整闭环。
+      </div>
+
+      <ul class="project-bullets">
+        <li>
+          <strong>Agent编排：</strong>基于 LangGraph StateGraph 构建 Planner → Coder → Executor → Reviewer 四Agent流水线，TypedDict 单一状态源实现 Agent 间信息传递，条件路由实现 通过→继续 / 失败→重试(≤3次) / 超限→跳过 的自主决策循环
+        </li>
+        <li>
+          <strong>LLM工程化：</strong>工厂模式适配 OpenAI / DeepSeek 双 Provider，不同 Agent 分配不同模型与温度参数（Planner: GPT-4o-mini 0.3 / Coder: GPT-4o 0 / Reviewer: GPT-4o-mini 0）。实现多格式 JSON 提取 + 字段补全 + 降级策略，解决 LLM 输出不可靠问题
+        </li>
+        <li>
+          <strong>Tool Calling体系：</strong>实现 5 个定制 LangChain Tool（文件创建/读取/编辑/代码执行/测试运行），Registry 模式 + 角色最小权限分发。Docker 沙箱 5 层安全隔离：容器级隔离 · 网络禁用 · 只读根文件系统 · cap_drop=ALL · 512MB/30s限制
+        </li>
+        <li>
+          <strong>实时通信：</strong>基于 asyncio.Queue 的 Pub/Sub 事件总线，WebSocket 推送 13 种 Agent 事件（planning→coding→executing→reviewing→done），支持历史事件补发 + 心跳保活
+        </li>
+        <li>
+          <strong>前端可视化：</strong>React 18 + TypeScript + Tailwind CSS，实现步骤进度条、文件树、代码高亮、最终报告卡片。Docker Compose 一键部署（Nginx 反向代理 + WebSocket 升级）
+        </li>
+      </ul>
+
+      <div class="tech-stack">
+        <span>Python</span> · <span>FastAPI</span> · <span>LangGraph</span> · <span>LangChain</span> · <span>React 18</span> · <span>TypeScript</span> · <span>Docker</span> · <span>pytest</span> · <span>WebSocket</span> · <span>Pydantic</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ 教育经历 ═══════ -->
+  <div class="section">
+    <div class="section-title">教育经历</div>
+    <div class="edu-line">
+      <span><span class="school">广东药科大学</span> — 电子信息工程 · 本科</span>
+      <span class="detail">2026届</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ═══════ 个人优势 ═══════ -->
+  <div class="section">
+    <div class="section-title">个人优势</div>
+    <ul class="strengths">
+      <li><strong>全链路AI工程能力：</strong>独立完成 Agent架构设计 → LLM编排 → Tool Calling → 前后端开发 → Docker部署的完整闭环，非 Demo 级代码</li>
+      <li><strong>工程化思维：</strong>92 个单元/集成测试 · 全量类型注解 · Pydantic 校验 · 错误降级策略 · 安全防护机制 · ADR 架构决策记录</li>
+      <li><strong>技术广度与深度：</strong>从 LLM 应用到全栈开发到容器化部署，理解每一层的工作原理而非停留在调用层面</li>
+    </ul>
+  </div>
+
+</div>
+
+</body>
+</html>

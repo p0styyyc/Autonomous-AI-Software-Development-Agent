@@ -1,4 +1,4 @@
-# 🤖 Mini Background Coding Agent
+# 🤖 Autonomous AI Software Development Agent
 
 > 用户输入自然语言需求 → 多个 AI Agent 自动协作 → 生成可运行的代码项目。
 
@@ -29,7 +29,7 @@
 
 ## 项目概述
 
-Mini Background Coding Agent 对标 GitHub Copilot Workspace / Devin / OpenHands 的核心理念，使用 **LangGraph + LangChain** 实现多 Agent 协作的代码生成流水线。
+Autonomous AI Software Development Agent 对标 GitHub Copilot Workspace / Devin / OpenHands 的核心理念，使用 **LangGraph + LangChain** 实现多 Agent 协作的代码生成流水线。
 
 **一句话描述：** 用户输入自然语言需求 → 4 个 AI Agent 自动协作（规划→编码→执行→审查）→ 生成可运行的代码项目。
 

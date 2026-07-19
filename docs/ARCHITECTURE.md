@@ -1,4 +1,4 @@
-# Mini Background Coding Agent — 架构设计文档
+# Autonomous AI Software Development Agent — 架构设计文档
 
 > 版本: v1.0 | 日期: 2026-07-19 | 作者: AI Application Engineer
 
@@ -22,7 +22,7 @@
 
 ### 1.1 项目定位
 
-Mini Background Coding Agent 是一个**简化但完整**的自主编程 Agent 系统，对标 GitHub Copilot Workspace / Devin / OpenHands 的核心理念，使用 LangGraph + LangChain 实现多 Agent 协作的代码生成流水线。
+Autonomous AI Software Development Agent 是一个**简化但完整**的自主编程 Agent 系统，对标 GitHub Copilot Workspace / Devin / OpenHands 的核心理念，使用 LangGraph + LangChain 实现多 Agent 协作的代码生成流水线。
 
 **一句话描述：** 用户输入自然语言需求 → 多个 AI Agent 自动协作 → 生成可运行的代码项目。
 

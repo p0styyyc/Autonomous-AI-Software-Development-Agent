@@ -1,5 +1,5 @@
 """
-Mini Background Coding Agent — 配置管理
+Autonomous AI Software Development Agent — 配置管理
 
 使用 pydantic-settings 实现类型安全的配置加载。
 支持 .env 文件和环境变量，优先级: 环境变量 > .env > 默认值

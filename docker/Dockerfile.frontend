@@ -1,5 +1,5 @@
 # ============================================
-# Mini Background Coding Agent — Frontend
+# Autonomous AI Software Development Agent — Frontend
 # ============================================
 FROM node:20-alpine AS build
 

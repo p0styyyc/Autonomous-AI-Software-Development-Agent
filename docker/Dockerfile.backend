@@ -1,5 +1,5 @@
 # ============================================
-# Mini Background Coding Agent — Backend
+# Autonomous AI Software Development Agent — Backend
 # ============================================
 FROM python:3.11-slim
 

@@ -1,5 +1,5 @@
 """
-Mini Background Coding Agent — FastAPI 应用入口
+Autonomous AI Software Development Agent — FastAPI 应用入口
 
 启动方式:
     uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时初始化，关闭时清理资源"""
     settings = get_settings()
-    logger.info(f"🚀 Mini Background Coding Agent 启动中...")
+    logger.info(f"🚀 Autonomous AI Software Development Agent 启动中...")
     logger.info(f"   LLM Provider: {settings.default_provider}")
     logger.info(f"   Default Model: {settings.default_model}")
     logger.info(f"   Workspace: {settings.workspace_path}")
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
 
     yield  # 应用运行中...
 
-    logger.info("👋 Mini Background Coding Agent 关闭")
+    logger.info("👋 Autonomous AI Software Development Agent 关闭")
 
 
 def create_app() -> FastAPI:
@@ -40,7 +40,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(
-        title="Mini Background Coding Agent",
+        title="Autonomous AI Software Development Agent",
         description="一个简化但完整的自主编程 Agent 系统，展示 AI 应用工程能力",
         version="1.0.0",
         docs_url="/docs",

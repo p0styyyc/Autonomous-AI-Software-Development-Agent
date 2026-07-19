@@ -1,5 +1,5 @@
 # ============================================
-# Mini Background Coding Agent — Sandbox
+# Autonomous AI Software Development Agent — Sandbox
 # ============================================
 # 基于官方 Python 镜像，预装 pytest 用于测试执行
 FROM python:3.11-slim
